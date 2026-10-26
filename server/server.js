@@ -63,23 +63,54 @@ app.use((error, req, res, next) => {
   });
 });
 
+let mongoMemoryServer = null;
+
 async function startServer() {
   try {
-    if (!process.env.MONGODB_URI) {
-      throw new Error("MONGODB_URI is missing from server/.env");
+    let mongoUri = process.env.MONGODB_URI;
+
+    if (!mongoUri || mongoUri === "memory" || mongoUri === "your_mongodb_connection_string_here") {
+      console.log("ℹ️  No remote MONGODB_URI configured. Starting embedded in-memory MongoDB...");
+      try {
+        const { MongoMemoryServer } = require("mongodb-memory-server");
+        mongoMemoryServer = await MongoMemoryServer.create();
+        mongoUri = mongoMemoryServer.getUri();
+        console.log("✅ Embedded MongoDB running at:", mongoUri);
+      } catch (err) {
+        throw new Error(
+          "MONGODB_URI is missing and failed to launch in-memory MongoDB: " + err.message
+        );
+      }
     }
 
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-      throw new Error("JWT_SECRET must contain at least 32 characters");
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("JWT_SECRET must contain at least 32 characters in production");
+      }
+      process.env.JWT_SECRET = "habitflow_super_secret_development_key_minimum_32_characters_123456789";
+      console.log("⚠️  Using fallback development JWT_SECRET for local environment");
     }
 
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(mongoUri);
 
     console.log("MongoDB connected successfully");
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`HabitFlow server running on port ${PORT}`);
     });
+
+    const shutdown = async () => {
+      console.log("Shutting down server...");
+      server.close();
+      await mongoose.disconnect();
+      if (mongoMemoryServer) {
+        await mongoMemoryServer.stop();
+      }
+      process.exit(0);
+    };
+
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
   } catch (error) {
     console.error("Server startup failed:", error.message);
     process.exit(1);

@@ -54,9 +54,10 @@ export const updateHabit = (id, habitData) =>
     body: JSON.stringify(habitData),
   });
 
-export const toggleHabit = (id) =>
+export const toggleHabit = (id, date) =>
   request(`/habits/${id}/toggle`, {
     method: "PATCH",
+    body: date ? JSON.stringify({ date }) : undefined,
   });
 
 export const deleteHabit = (id) =>

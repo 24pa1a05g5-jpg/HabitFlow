@@ -28,6 +28,13 @@ const habitSchema = new mongoose.Schema(
       default: "#6c63ff",
     },
 
+    category: {
+      type: String,
+      trim: true,
+      maxlength: 40,
+      default: "General",
+    },
+
     completedDates: {
       type: [String],
       default: [],

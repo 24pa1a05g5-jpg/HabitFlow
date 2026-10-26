@@ -85,6 +85,30 @@ router.get("/stats", async (req, res) => {
       0
     );
 
+    const last7Days = [];
+    const todayDate = new Date(`${today}T00:00:00+05:30`);
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(todayDate);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toLocaleDateString("en-CA", {
+        timeZone: "Asia/Kolkata",
+      });
+      const dayName = d.toLocaleDateString("en-US", {
+        weekday: "short",
+        timeZone: "Asia/Kolkata",
+      });
+      const count = habits.filter((h) =>
+        h.completedDates.includes(dateStr)
+      ).length;
+      last7Days.push({
+        date: dateStr,
+        day: dayName,
+        completedCount: count,
+        totalHabits: habits.length,
+        rate: habits.length > 0 ? Math.round((count / habits.length) * 100) : 0,
+      });
+    }
+
     res.json({
       totalHabits: habits.length,
       completedToday,
@@ -92,6 +116,7 @@ router.get("/stats", async (req, res) => {
       bestStreak,
       totalCompletions,
       totalPossibleCompletions,
+      last7Days,
     });
   } catch (error) {
     console.error("Get stats error:", error);
@@ -102,7 +127,7 @@ router.get("/stats", async (req, res) => {
 // CREATE a habit
 router.post("/", async (req, res) => {
   try {
-    const { name, description = "", color = "#6c63ff" } = req.body;
+    const { name, description = "", color = "#6c63ff", category = "General" } = req.body;
 
     if (typeof name !== "string" || !name.trim()) {
       return res.status(400).json({
@@ -127,6 +152,10 @@ router.post("/", async (req, res) => {
         typeof color === "string" && /^#[0-9a-fA-F]{6}$/.test(color)
           ? color
           : "#6c63ff",
+      category:
+        typeof category === "string" && category.trim()
+          ? category.trim().slice(0, 40)
+          : "General",
     });
 
     res.status(201).json(habit);
@@ -143,7 +172,7 @@ router.put("/:id", async (req, res) => {
       return res.status(400).json({ message: "Invalid habit ID" });
     }
 
-    const { name, description, color } = req.body;
+    const { name, description, color, category } = req.body;
     const updates = {};
 
     if (name !== undefined) {
@@ -182,13 +211,23 @@ router.put("/:id", async (req, res) => {
       updates.color = color;
     }
 
+    if (category !== undefined) {
+      if (typeof category !== "string") {
+        return res.status(400).json({
+          message: "Invalid category",
+        });
+      }
+
+      updates.category = category.trim().slice(0, 40) || "General";
+    }
+
     const habit = await Habit.findOneAndUpdate(
       {
         _id: req.params.id,
         userId: req.userId,
       },
       { $set: updates },
-      { new: true, runValidators: true }
+      { returnDocument: "after", runValidators: true }
     );
 
     if (!habit) {
@@ -202,7 +241,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// MARK today's habit complete or incomplete
+// MARK habit complete or incomplete for a specific date (defaults to today)
 router.patch("/:id/toggle", async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
@@ -218,11 +257,17 @@ router.patch("/:id/toggle", async (req, res) => {
       return res.status(404).json({ message: "Habit not found" });
     }
 
-    const today = getTodayString();
-    const index = habit.completedDates.indexOf(today);
+    const targetDate =
+      req.body &&
+      typeof req.body.date === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(req.body.date)
+        ? req.body.date
+        : getTodayString();
+
+    const index = habit.completedDates.indexOf(targetDate);
 
     if (index === -1) {
-      habit.completedDates.push(today);
+      habit.completedDates.push(targetDate);
     } else {
       habit.completedDates.splice(index, 1);
     }

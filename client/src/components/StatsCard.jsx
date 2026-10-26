@@ -1,12 +1,14 @@
-export default function StatsCard({ label, value, icon }) {
+export default function StatsCard({ label, value, icon, subtext }) {
   return (
-    <div className="stats-card">
-      <div className="stats-icon">{icon}</div>
-
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
+    <div className="metric-card">
+      <div className="metric-header">
+        <div className="metric-icon-wrap indigo">{icon}</div>
       </div>
+      <div className="metric-value-row">
+        <span className="metric-number">{value}</span>
+      </div>
+      <span className="metric-label">{label}</span>
+      {subtext && <div className="metric-subtext">{subtext}</div>}
     </div>
   );
 }
