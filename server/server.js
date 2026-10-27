@@ -9,9 +9,12 @@ const path = require("path");
 
 const authRoutes = require("./routes/auth");
 const habitRoutes = require("./routes/habits");
+const bcrypt = require("bcryptjs");
+const User = require("./models/User");
+const Habit = require("./models/Habit");
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 app.use(cors());
 app.use(express.json({ limit: "10kb" }));
@@ -94,6 +97,62 @@ async function startServer() {
     await mongoose.connect(mongoUri);
 
     console.log("MongoDB connected successfully");
+
+    // Auto-seed demo account if it doesn't exist
+    try {
+      const demoUser = await User.findOne({ email: "demo@habitflow.app" });
+      if (!demoUser) {
+        const hashedPassword = await bcrypt.hash("password123", 10);
+        const user = await User.create({
+          name: "Alex Rivera",
+          email: "demo@habitflow.app",
+          password: hashedPassword,
+        });
+
+        const todayStr = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Kolkata",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date());
+
+        const getPastDate = (daysAgo) => {
+          const d = new Date();
+          d.setDate(d.getDate() - daysAgo);
+          return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        };
+
+        await Habit.create([
+          {
+            userId: user._id,
+            name: "Drink 2.5L Water Daily",
+            category: "Health & Wellness",
+            description: "Stay hydrated during workday",
+            color: "#06b6d4",
+            completedDates: [todayStr, getPastDate(1), getPastDate(2), getPastDate(3)],
+          },
+          {
+            userId: user._id,
+            name: "Morning Meditation 15m",
+            category: "Mindfulness",
+            description: "Mindful breathing and focus",
+            color: "#10b981",
+            completedDates: [todayStr, getPastDate(1)],
+          },
+          {
+            userId: user._id,
+            name: "45m Deep Work Sprint",
+            category: "Deep Work & Focus",
+            description: "Focus without distractions",
+            color: "#6366f1",
+            completedDates: [getPastDate(1), getPastDate(2)],
+          },
+        ]);
+        console.log("🌱 Demo account initialized (demo@habitflow.app)");
+      }
+    } catch (seedErr) {
+      console.log("Demo seed notice:", seedErr.message);
+    }
 
     const server = app.listen(PORT, () => {
       console.log(`HabitFlow server running on port ${PORT}`);

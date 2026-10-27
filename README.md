@@ -77,7 +77,7 @@ npm install
 Create a `.env` file inside `server/` (or use the defaults):
 
 ```dotenv
-PORT=5000
+PORT=5001
 NODE_ENV=development
 JWT_SECRET=your_super_secret_jwt_key_at_least_32_characters_long
 # Optional: Provide a MongoDB Atlas URI. If omitted or left empty, HabitFlow
@@ -88,7 +88,7 @@ MONGODB_URI=your_mongodb_connection_string_here
 #### Run the Server
 
 ```bash
-# Start backend server (runs on http://localhost:5000)
+# Start backend server (runs on http://localhost:5001)
 npm run dev
 
 # Or run in production mode:

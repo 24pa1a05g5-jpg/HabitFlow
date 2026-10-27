@@ -12,15 +12,32 @@ async function request(endpoint, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (err) {
+    throw new Error(
+      "Cannot connect to backend server. Make sure your server is running (npm run dev in server/)."
+    );
+  }
 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.message || "Something went wrong");
+    let msg = data.message;
+    if (!msg) {
+      if (response.status === 403) {
+        msg = "Access Forbidden (403). If running on macOS, port 5000 is reserved by AirPlay Receiver. Use port 5001.";
+      } else if (response.status === 502 || response.status === 504) {
+        msg = "Server unavailable. Please ensure the backend is running on port 5001.";
+      } else {
+        msg = "Unable to complete request. Please verify server status.";
+      }
+    }
+    throw new Error(msg);
   }
 
   return data;
